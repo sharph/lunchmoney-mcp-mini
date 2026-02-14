@@ -1,0 +1,14 @@
+[project]
+name = "lunchmoney-mcp"
+version = "0.1.0"
+description = "A Model Context Protocol server for the Lunch Money API with optimized, minimal responses"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp>=2.14.5",
+    "pydantic>=2.12.5",
+    "requests-openapi>=1.0.6",
+]
+
+[project.scripts]
+lunchmoney-mcp = "main:main"
