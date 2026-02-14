@@ -23,7 +23,7 @@ A Model Context Protocol (MCP) server for the [Lunch Money](https://lunchmoney.a
 1. Clone this repository:
 ```bash
 git clone <your-repo-url>
-cd lunchmoney-mcp
+cd lunchmoney-mcp-mini
 ```
 
 2. Install dependencies using [uv](https://github.com/astral-sh/uv):
@@ -67,11 +67,11 @@ Add to your Claude Desktop configuration file:
 ```json
 {
   "mcpServers": {
-    "lunchmoney": {
+    "lunchmoney-mini": {
       "command": "uv",
       "args": [
         "--directory",
-        "/absolute/path/to/lunchmoney-mcp",
+        "/absolute/path/to/lunchmoney-mcp-mini",
         "run",
         "main.py"
       ],

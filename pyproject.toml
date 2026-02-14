@@ -1,5 +1,5 @@
 [project]
-name = "lunchmoney-mcp"
+name = "lunchmoney-mcp-mini"
 version = "0.1.0"
 description = "A Model Context Protocol server for the Lunch Money API with optimized, minimal responses"
 readme = "README.md"
@@ -11,4 +11,4 @@ dependencies = [
 ]
 
 [project.scripts]
-lunchmoney-mcp = "main:main"
+lunchmoney-mcp-mini = "main:main"
