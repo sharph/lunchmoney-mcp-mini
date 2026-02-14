@@ -114,7 +114,7 @@ def get_current_user() -> dict[str, Any]:
 def get_transactions(
     start_date: str,
     end_date: str | None = None,
-    category_id: int | None = None,
+    category_name: str | None = None,
     tag_id: int | None = None,
     status: Literal["reviewed", "unreviewed", "delete_pending"] | None = None,
     is_pending: bool | None = None,
@@ -131,7 +131,7 @@ def get_transactions(
     Args:
         start_date: Start date in YYYY-MM-DD format (required)
         end_date: End date in YYYY-MM-DD format (defaults to last day of start_date's month)
-        category_id: Filter by category ID
+        category_name: Filter by category name (e.g., "Groceries", "Dining Out")
         tag_id: Filter by tag ID
         status: Filter by transaction status (reviewed, unreviewed, delete_pending)
         is_pending: Filter by pending status
@@ -144,9 +144,19 @@ def get_transactions(
         include_aggregates: If True, calculates totals per category for full date range (respects all filters)
 
     Returns:
-        Structured JSON with transactions list, has_more pagination flag, and optionally category aggregates
+        Structured JSON where transactions include category names instead of IDs,
+        has_more pagination flag, and optionally category aggregates
     """
     client = get_api_client()
+
+    category_names = _get_categories()
+
+    category_id = None
+    if category_name:
+        name_to_id = {name: id for id, name in category_names.items()}
+        category_id = name_to_id.get(category_name)
+        if category_id is None:
+            raise ValueError(f"Category '{category_name}' not found")
 
     # Calculate default end_date if not provided (last day of start_date's month)
     if end_date is None:
@@ -185,7 +195,11 @@ def get_transactions(
                 "date": t["date"],
                 "amount": t["amount"],
                 "payee": t["payee"],
-                "category_id": t["category_id"],
+                "category": (
+                    category_names.get(t["category_id"], "Uncategorized")
+                    if t["category_id"]
+                    else "Uncategorized"
+                ),
                 "status": t["status"],
                 "is_pending": t["is_pending"],
             }
@@ -196,9 +210,6 @@ def get_transactions(
 
     # Add aggregates if requested
     if include_aggregates:
-        # Fetch categories for names
-        category_names = _get_categories()
-
         # Build params for full range (same filters, no limit/offset)
         agg_params = {
             "start_date": start_date,
@@ -266,7 +277,8 @@ def get_transaction(transaction_id: int) -> dict[str, Any]:
 
     Retrieves the full details of a single transaction by its ID, including:
     - Core data: id, date, amount, currency, payee, original_name
-    - Category/accounts: category_id, manual_account_id, plaid_account_id, recurring_id
+    - Category: category name (and category_id for reference)
+    - Accounts: manual_account_id, plaid_account_id, recurring_id
     - Metadata: plaid_metadata, custom_metadata, files (if available)
     - Grouping/splitting: is_split_parent, split_parent_id, is_group_parent, group_parent_id, children
     - Timestamps: created_at, updated_at
@@ -282,6 +294,13 @@ def get_transaction(transaction_id: int) -> dict[str, Any]:
 
     response = client.getTransactionById(id=transaction_id)
     data = response.json()
+
+    category_names = _get_categories()
+
+    if data.get("category_id"):
+        data["category"] = category_names.get(data["category_id"], "Uncategorized")
+    else:
+        data["category"] = "Uncategorized"
 
     return data
 
