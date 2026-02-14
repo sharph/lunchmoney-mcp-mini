@@ -2,6 +2,8 @@
 
 A Model Context Protocol (MCP) server for the [Lunch Money](https://lunchmoney.app) API v2, designed with minimal response sizes to prevent context window bloat.
 
+
+
 ## Features
 
 - **Optimized responses**: Concise, formatted output to minimize token usage
@@ -71,7 +73,7 @@ Add to your Claude Desktop configuration file:
         "--directory",
         "/absolute/path/to/lunchmoney-mcp",
         "run",
-        "lunchmoney-mcp"
+        "main.py"
       ],
       "env": {
         "LUNCHMONEY_API_TOKEN": "your-api-token-here"
