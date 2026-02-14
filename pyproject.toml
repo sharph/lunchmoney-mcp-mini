@@ -1,6 +1,6 @@
 [project]
 name = "lunchmoney-mcp-mini"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Model Context Protocol server for the Lunch Money API with optimized, minimal responses"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -11,4 +11,10 @@ dependencies = [
 ]
 
 [project.scripts]
-lunchmoney-mcp-mini = "main:main"
+lunchmoney-mcp-mini = "lunchmoney_mcp_mini.main:main"
+
+[tool.setuptools]
+packages = ["lunchmoney_mcp_mini"]
+
+[tool.setuptools.package-data]
+lunchmoney_mcp_mini = ["openapi.yaml"]

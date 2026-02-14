@@ -31,11 +31,6 @@ cd lunchmoney-mcp-mini
 uv sync
 ```
 
-Or with pip:
-```bash
-pip install -e .
-```
-
 ## Configuration
 
 ### Get Your API Token
@@ -73,7 +68,7 @@ Add to your Claude Desktop configuration file:
         "--directory",
         "/absolute/path/to/lunchmoney-mcp-mini",
         "run",
-        "main.py"
+        "lunchmoney_mcp_mini/main.py"
       ],
       "env": {
         "LUNCHMONEY_API_TOKEN": "your-api-token-here"
@@ -87,7 +82,7 @@ Add to your Claude Desktop configuration file:
 
 ```bash
 # Make sure LUNCHMONEY_API_TOKEN is set
-python main.py
+uv run lunchmoney_mcp_mini/main.py
 ```
 
 ## Available Tools
