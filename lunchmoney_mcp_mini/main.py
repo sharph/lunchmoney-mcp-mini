@@ -161,7 +161,8 @@ def get_transactions(
 
     Returns:
         Structured JSON where transactions include category names instead of IDs,
-        has_more pagination flag, and optionally category aggregates
+        has_more pagination flag, and optionally category aggregates.
+        When has_more is true, next_offset and next_limit are provided for easy pagination.
     """
     client = get_api_client()
 
@@ -224,6 +225,11 @@ def get_transactions(
         ],
         "has_more": data["has_more"],
     }
+
+    # Add next page information for LLM-friendly pagination
+    if data["has_more"]:
+        result["next_offset"] = (offset or 0) + limit
+        result["next_limit"] = limit
 
     # Add aggregates if requested
     if include_aggregates:
