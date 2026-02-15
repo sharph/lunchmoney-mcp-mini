@@ -1,6 +1,6 @@
 [project]
 name = "lunchmoney-mcp-mini"
-version = "0.3.0"
+version = "0.4.0"
 description = "A Model Context Protocol server for the Lunch Money API with optimized, minimal responses"
 readme = "README.md"
 requires-python = ">=3.12"
