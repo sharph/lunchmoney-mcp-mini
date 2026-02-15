@@ -10,6 +10,10 @@ dependencies = [
     "requests-openapi>=1.0.6",
 ]
 
+[project.urls]
+Repository = "https://github.com/sharph/lunchmoney-mcp-mini.git"
+Issues = "https://github.com/sharph/lunchmoney-mcp-mini/issues"
+
 [project.scripts]
 lunchmoney-mcp-mini = "lunchmoney_mcp_mini.main:main"
 
@@ -18,3 +22,8 @@ packages = ["lunchmoney_mcp_mini"]
 
 [tool.setuptools.package-data]
 lunchmoney_mcp_mini = ["openapi.yaml"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.1",
+]
