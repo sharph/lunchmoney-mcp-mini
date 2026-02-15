@@ -5,6 +5,8 @@ An MCP server for the Lunch Money API with optimized, minimal responses
 to prevent context window bloat.
 """
 
+import datetime
+
 import calendar
 import functools
 import os
@@ -111,6 +113,13 @@ def get_current_user() -> dict[str, Any]:
 
 @mcp.tool()
 @handle_auth_errors
+def get_categories() -> list[str]:
+    """Return a list of category names."""
+    return list(_get_categories().values())
+
+
+@mcp.tool()
+@handle_auth_errors
 def get_transactions(
     start_date: str,
     end_date: str | None = None,
@@ -128,6 +137,13 @@ def get_transactions(
 ) -> dict[str, Any]:
     """Get transactions for a date range.
 
+    This is a *paginated* tool and you MUST consider that not all transactions
+    may be returned. The `has_more` return value will tell you if pagniation
+    should continue. If `has_more` is true, ask yourself if you need to make
+    another request to properly answer the user's query.
+
+    include_aggregates returns aggregates for *all pages*.
+
     Args:
         start_date: Start date in YYYY-MM-DD format (required)
         end_date: End date in YYYY-MM-DD format (defaults to last day of start_date's month)
@@ -139,9 +155,9 @@ def get_transactions(
         plaid_account_id: Filter by plaid account ID
         recurring_id: Filter by recurring item ID
         include_pending: Include pending transactions (ignored if is_pending is set)
-        limit: Maximum number of transactions to return (1-2000, default 100)
+        limit: Maximum number of transactions to return (1-100, default 100)
         offset: Pagination offset
-        include_aggregates: If True, calculates totals per category for full date range (respects all filters)
+        include_aggregates: If True, calculates totals per category for full date range (respects all filters, except pagination)
 
     Returns:
         Structured JSON where transactions include category names instead of IDs,
@@ -168,7 +184,7 @@ def get_transactions(
     params = {
         "start_date": start_date,
         "end_date": end_date,
-        "limit": min(limit, 2000),
+        "limit": min(limit, 100),
     }
     # Add optional filters (skip None values)
     optional_params = {
@@ -189,6 +205,7 @@ def get_transactions(
     data = response.json()
 
     result = {
+        "todays_date": datetime.datetime.now().strftime("%Y-%m-%d"),
         "transactions": [
             {
                 "id": t["id"],
@@ -214,6 +231,7 @@ def get_transactions(
         agg_params = {
             "start_date": start_date,
             "end_date": end_date,
+            "offset": 0,
             "limit": 2000,
         }
         agg_params.update(
@@ -224,16 +242,22 @@ def get_transactions(
             }
         )
 
+        more = True
         # Fetch all transactions for aggregation
-        agg_response = client.getAllTransactions(**agg_params)
-        agg_data = agg_response.json()
+        transactions = []
+        while more:
+            agg_response = client.getAllTransactions(**agg_params)
+            agg_data = agg_response.json()
+            transactions += agg_data["transactions"]
+            more = agg_data["has_more"]
+            agg_params["offset"] += agg_params["limit"]
 
         # Build category aggregates
         category_totals: dict[int | None, dict] = {}
         total_count = 0
         total_amount = 0.0
 
-        for t in agg_data["transactions"]:
+        for t in transactions:
             cat_id = t["category_id"]
             if cat_id not in category_totals:
                 category_totals[cat_id] = {"count": 0, "total_amount": 0.0}
