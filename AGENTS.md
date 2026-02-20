@@ -13,3 +13,9 @@ When implementing tools, prioritize minimal context usage:
 ## Running Python Commands
 - Use `uv run python` for running Python commands instead of `python` directly
 - Example: `uv run python -m py_compile main.py`
+
+## Exception Handling
+- NEVER use bare `except Exception:` without logging or specific error handling
+- Bare exception handlers hide errors and make debugging difficult
+- When catching exceptions, at minimum log the error or re-raise
+- Prefer catching specific exception types over broad `Exception`

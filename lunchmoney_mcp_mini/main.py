@@ -52,6 +52,26 @@ def _get_categories() -> dict[int, str]:
     return {c["id"]: c["name"] for c in data["categories"]}
 
 
+def _get_accounts() -> dict[int, str]:
+    """Fetch all accounts and return mapping of id -> name."""
+    client = get_api_client()
+
+    account_names: dict[int, str] = {}
+
+    for res_name, fn in {
+        "plaid_accounts": client.getAllPlaidAccounts,
+        "manual_accounts": client.getAllManualAccounts,
+    }.items():
+        response = fn()
+        data = response.json()
+        for acc in data.get(res_name, []):
+            account_names[acc["id"]] = (
+                acc["display_name"] or acc["name"] or f"Account {acc['id']}"
+            )
+
+    return account_names
+
+
 def get_api_client() -> Client:
     """Get an authenticated Lunch Money API client (cached)."""
     global _client
@@ -123,13 +143,13 @@ def get_categories() -> list[str]:
 def get_transactions(
     start_date: str,
     end_date: str | None = None,
-    category_name: str | None = None,
-    tag_id: int | None = None,
-    status: Literal["reviewed", "unreviewed", "delete_pending"] | None = None,
-    is_pending: bool | None = None,
-    manual_account_id: int | None = None,
-    plaid_account_id: int | None = None,
-    recurring_id: int | None = None,
+    filter_category_name: str | None = None,
+    filter_tag_id: int | None = None,
+    filter_status: Literal["reviewed", "unreviewed", "delete_pending"] | None = None,
+    filter_is_pending: bool | None = None,
+    filter_manual_account_id: int | None = None,
+    filter_plaid_account_id: int | None = None,
+    filter_recurring_id: int | None = None,
     include_pending: bool | None = None,
     limit: int = 100,
     offset: int | None = None,
@@ -147,13 +167,13 @@ def get_transactions(
     Args:
         start_date: Start date in YYYY-MM-DD format (required)
         end_date: End date in YYYY-MM-DD format (defaults to last day of start_date's month)
-        category_name: Filter by category name (e.g., "Groceries", "Dining Out")
-        tag_id: Filter by tag ID
-        status: Filter by transaction status (reviewed, unreviewed, delete_pending)
-        is_pending: Filter by pending status
-        manual_account_id: Filter by manual account ID
-        plaid_account_id: Filter by plaid account ID
-        recurring_id: Filter by recurring item ID
+        filter_category_name: Filter by category name (e.g., "Groceries", "Dining Out")
+        filter_tag_id: Filter by tag ID
+        filter_status: Filter by transaction status (reviewed, unreviewed, delete_pending)
+        filter_is_pending: Filter by pending status
+        filter_manual_account_id: Filter by manual account ID
+        filter_plaid_account_id: Filter by plaid account ID
+        filter_recurring_id: Filter by recurring item ID
         include_pending: Include pending transactions (ignored if is_pending is set)
         limit: Maximum number of transactions to return (1-100, default 100)
         offset: Pagination offset
@@ -167,13 +187,14 @@ def get_transactions(
     client = get_api_client()
 
     category_names = _get_categories()
+    account_names = _get_accounts()
 
     category_id = None
-    if category_name:
+    if filter_category_name:
         name_to_id = {name: id for id, name in category_names.items()}
-        category_id = name_to_id.get(category_name)
+        category_id = name_to_id.get(filter_category_name)
         if category_id is None:
-            raise ValueError(f"Category '{category_name}' not found")
+            raise ValueError(f"Category '{filter_category_name}' not found")
 
     # Calculate default end_date if not provided (last day of start_date's month)
     if end_date is None:
@@ -190,12 +211,12 @@ def get_transactions(
     # Add optional filters (skip None values)
     optional_params = {
         "category_id": category_id,
-        "tag_id": tag_id,
-        "status": status,
-        "is_pending": is_pending,
-        "manual_account_id": manual_account_id,
-        "plaid_account_id": plaid_account_id,
-        "recurring_id": recurring_id,
+        "tag_id": filter_tag_id,
+        "status": filter_status,
+        "is_pending": filter_is_pending,
+        "manual_account_id": filter_manual_account_id,
+        "plaid_account_id": filter_plaid_account_id,
+        "recurring_id": filter_recurring_id,
         "include_pending": include_pending or None,
         "offset": offset,
     }
@@ -217,6 +238,9 @@ def get_transactions(
                     category_names.get(t["category_id"], "Uncategorized")
                     if t["category_id"]
                     else "Uncategorized"
+                ),
+                "account": (
+                    account_names.get(t["manual_account_id"] or t["plaid_account_id"])
                 ),
                 "status": t["status"],
                 "is_pending": t["is_pending"],
@@ -326,11 +350,18 @@ def get_transaction(transaction_id: int) -> dict[str, Any]:
     data = response.json()
 
     category_names = _get_categories()
+    account_names = _get_accounts()
 
     if data.get("category_id"):
         data["category"] = category_names.get(data["category_id"], "Uncategorized")
     else:
         data["category"] = "Uncategorized"
+
+    if data.get("manual_account_id") or data.get("plaid_account_id"):
+        account_id = data.get("manual_account_id") or data.get("plaid_account_id")
+        data["account"] = account_names.get(account_id, f"Account {account_id}")
+    else:
+        data["account"] = None
 
     return data
 
@@ -356,6 +387,47 @@ def add_numbers(numbers: list[float]) -> dict[str, Any]:
         "sum": rounded_total,
         "input_count": len(numbers),
     }
+
+
+@mcp.tool()
+@handle_auth_errors
+def get_accounts() -> dict[str, Any]:
+    """Get all accounts (both manual and Plaid-synced).
+
+    Returns a combined list of all accounts in the user's budget, including:
+    - Manual accounts: manually-managed asset/liability accounts
+    - Plaid accounts: accounts synced with financial institutions
+
+    Each account includes minimal information: id, name, type, balance, currency, status,
+    and account_type (to distinguish between 'manual' and 'plaid' accounts).
+
+    Useful for understanding which accounts are available and their current balances.
+    """
+    client = get_api_client()
+
+    accounts = []
+
+    for res_name, fn in {
+        "plaid_accounts": client.getAllPlaidAccounts,
+        "manual_accounts": client.getAllManualAccounts,
+    }.items():
+        response = fn()
+        data = response.json()
+        for acc in data.get(res_name, []):
+            accounts.append(
+                {
+                    "id": acc["id"],
+                    "name": acc["name"],
+                    "display_name": acc["display_name"],
+                    "type": acc["type"],
+                    "balance": acc["balance"],
+                    "currency": acc["currency"],
+                    "status": acc["status"],
+                    "account_type": "manual",
+                }
+            )
+
+    return {"accounts": accounts}
 
 
 def main():
